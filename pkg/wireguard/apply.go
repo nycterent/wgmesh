@@ -3,7 +3,6 @@ package wireguard
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -87,25 +86,16 @@ func ApplyFullConfiguration(client *ssh.Client, iface string, config *FullConfig
 func SetPeer(iface, pubKey string, psk [32]byte, endpoint, allowedIPs string) error {
 	// Build wg set command
 	args := []string{"set", iface, "peer", pubKey}
+	var stdin strings.Reader
+	hasStdin := false
 
 	// Add PSK if non-zero
 	var zeroKey [32]byte
 	if psk != zeroKey {
-		// Write PSK to temp file
-		tmpFile, err := os.CreateTemp("", "wg-psk-*")
-		if err != nil {
-			return fmt.Errorf("failed to create temp file for PSK: %w", err)
-		}
-		defer os.Remove(tmpFile.Name())
-
 		pskB64 := base64.StdEncoding.EncodeToString(psk[:])
-		if _, err := tmpFile.WriteString(pskB64); err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("failed to write PSK: %w", err)
-		}
-		tmpFile.Close()
-
-		args = append(args, "preshared-key", tmpFile.Name())
+		args = append(args, "preshared-key", "/dev/stdin")
+		stdin = *strings.NewReader(pskB64 + "\n")
+		hasStdin = true
 	}
 
 	if endpoint != "" {
@@ -120,6 +110,9 @@ func SetPeer(iface, pubKey string, psk [32]byte, endpoint, allowedIPs string) er
 	args = append(args, "persistent-keepalive", "25")
 
 	cmd := exec.Command("wg", args...)
+	if hasStdin {
+		cmd.Stdin = &stdin
+	}
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("wg set failed: %s: %w", string(output), err)
 	}

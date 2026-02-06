@@ -91,22 +91,10 @@ func createInterface(name string) error {
 
 // configureInterface configures a WireGuard interface with private key and port
 func configureInterface(name, privateKey string, listenPort int) error {
-	// Write private key to temp file
-	tmpFile, err := os.CreateTemp("", "wg-key-*")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.WriteString(privateKey); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("failed to write private key: %w", err)
-	}
-	tmpFile.Close()
-
-	// Configure interface
-	args := []string{"set", name, "private-key", tmpFile.Name(), "listen-port", fmt.Sprintf("%d", listenPort)}
+	// Configure interface. Pass key via stdin to avoid filesystem permission issues.
+	args := []string{"set", name, "private-key", "/dev/stdin", "listen-port", fmt.Sprintf("%d", listenPort)}
 	cmd := exec.Command("wg", args...)
+	cmd.Stdin = strings.NewReader(privateKey + "\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to configure interface: %s: %w", string(output), err)
 	}
