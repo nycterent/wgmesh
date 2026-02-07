@@ -2,7 +2,7 @@
 FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git make
+RUN apk add --no-cache git
 
 # Set working directory
 WORKDIR /build
@@ -27,7 +27,6 @@ RUN apk update && apk add --no-cache \
     wireguard-tools \
     iptables \
     iproute2 \
-    openssh-client \
     ca-certificates && \
     rm -rf /var/cache/apk/*
 
@@ -46,16 +45,18 @@ RUN chmod +x /usr/local/bin/wgmesh
 # Expose WireGuard port
 EXPOSE 51820/udp
 
-# Run as non-root user for better security
-# Note: For WireGuard interface management, the container needs to run with
-# --privileged flag and --network host. The non-root user is used by default
-# for general operations, but privileged operations will need appropriate
-# Docker run flags.
+# User setup
+# Note: wgmesh performs privileged networking operations (e.g., WireGuard
+# interface management, route updates) that require NET_ADMIN and related
+# capabilities. To ensure these operations succeed, the container runs as
+# root by default. The wgmesh user/group are created for optional use if
+# you want to run non-privileged operations with explicit capability grants.
 RUN addgroup -g 1000 wgmesh && \
     adduser -D -u 1000 -G wgmesh wgmesh && \
     chown -R wgmesh:wgmesh /data
 
-USER wgmesh
+# Run as root by default for WireGuard operations
+# USER wgmesh
 
 ENTRYPOINT ["/usr/local/bin/wgmesh"]
 CMD ["--help"]

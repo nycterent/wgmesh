@@ -18,7 +18,7 @@ The Docker images are built for the following platforms:
 ### Workflow Configuration
 
 The workflow (`.github/workflows/docker-build.yml`) is triggered by:
-- **Push to main/master branch**: Builds and pushes images tagged with branch name and `latest`
+- **Push to the repository's default branch** (typically `main` or `master`): Builds and pushes images tagged with branch name and `latest`
 - **Git tags** matching `v*.*.*`: Builds and pushes images with semantic version tags
 - **Pull requests**: Builds images but doesn't push them (for validation)
 - **Manual dispatch**: Can be triggered manually from GitHub Actions UI
@@ -56,7 +56,7 @@ docker pull --platform linux/arm64 ghcr.io/nycterent/wgmesh:latest
 The Dockerfile uses a multi-stage build:
 
 1. **Builder stage** (golang:1.23-alpine):
-   - Installs build dependencies (git, make)
+   - Installs build dependencies (git)
    - Downloads Go dependencies
    - Builds a statically-linked binary with optimized flags
 
@@ -64,13 +64,13 @@ The Dockerfile uses a multi-stage build:
    - Minimal Alpine Linux base
    - Installs WireGuard tools and dependencies
    - Copies the binary from builder stage
-   - Runs as non-root user for security
+   - Runs as root by default for WireGuard operations
    - Exposes UDP port 51820 (WireGuard default)
 
 ### Security Features
 
 - Static binary with no CGO dependencies
-- Runs as non-root user (uid/gid 1000)
+- Runs as root by default (required for WireGuard network operations)
 - Minimal attack surface (Alpine base)
 - Only necessary runtime dependencies included
 
